@@ -32,12 +32,17 @@ cat $FILE_LIST \
 #   the export process uses underscores "_" as
 #     folder delineation, so we'll have to remove
 #     those from any file names
-#   the team uses dollar signs "$" in filenames
-#     we'll plan to single-quote the file paths
-#     to avoid expansion of special characters
-#   except, this creates a problem for 
-#     single-quote in filenames, so, we'll have to 
-#     escape those?  replace those?
+#   in addition, normal "bad" characters are allowed
+#     as part of path, so, we'll have to do a bunch
+#     of escaping
+#     (note, at some point this would all be
+#	easier in python....)
+
+# let's deal with the standard special characters
+sed -i 's#\([]\!\(\)\#\%\@\*\$\&\ \=[]\)#\\\1#g' $FILE_LIST
+
+# and single quote
+sed -i 's/\x27/\'\\\''/g' $FILE_LIST
 
 # remove underscores (_) from file name
 #  replace with dash (-)
@@ -46,12 +51,14 @@ cat $FILE_LIST \
 cat $FILE_LIST \
 	| awk 'BEGIN{FS="/"}
 	{if($3 ~ /_/) {
-		printf "mv '\''./files/%s'\'' '\''./files/%s/%s/", $0,$1,$2
+		printf "mv ./files/%s ./files/%s/%s/", $0,$1,$2
 		gsub(/_/,"-",$3)
-		printf "%s'\''\n",$3
+		printf "%s\n",$3
 	}
 	else {next}
 	}' > $WORKING_FOLDER/removeunderscores.sh
+
+exit
 
 bash $WORKING_FOLDER/removeunderscores.sh
 

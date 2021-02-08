@@ -20,12 +20,13 @@ cd $WORKING_FOLDER/files && find . > $FILE_LIST
 cd $WORKING_FOLDER
 
 # build folder structure
-cat $FILE_LIST \
+echo "mkdir Clients" > $WORKING_FOLDER/makedirs.sh
+tail -n +2 $FILE_LIST \
 	| cut -d "/" -f 2 | sort | uniq \
 	| sed -e 's/Private Firm Documents/Clients/' \
 	| sed -e 's/_/\//g' \
 	| awk '{printf "mkdir -p \"%s\"\n", $0}' \
-	> $WORKING_FOLDER/makedirs.sh
+	>> $WORKING_FOLDER/makedirs.sh
 
 
 # We have to deal with bad characters in file names
@@ -48,7 +49,7 @@ sed -i 's/\x27/\'\\\''/g' $FILE_LIST
 #  replace with dash (-)
 #  this prevents us from losing our minds when
 #  we expand the file names into folder structure
-cat $FILE_LIST \
+tail -n +2 $FILE_LIST \
 	| awk 'BEGIN{FS="/"}
 	{if($3 ~ /_/) {
 		printf "mv ./files/%s ./files/%s/%s/", $0,$1,$2
@@ -58,13 +59,17 @@ cat $FILE_LIST \
 	else {next}
 	}' > $WORKING_FOLDER/removeunderscores.sh
 
-exit
-
+# ok - let's get rid of those pesky underscores
 bash $WORKING_FOLDER/removeunderscores.sh
 
 # rebuild file list since we changed
 #   the names of some of our files
 cd $WORKING_FOLDER/files && find . > $FILE_LIST
+
+# let's deal with the standard special characters
+sed -i 's#\([]\!\(\)\#\%\@\*\$\&\ \=[]\)#\\\1#g' $FILE_LIST
+# and single quote
+sed -i 's/\x27/\'\\\''/g' $FILE_LIST
 
 # build command to move everything to new location
 #   first, remove lines that don't contain any files
@@ -72,10 +77,11 @@ cd $WORKING_FOLDER/files && find . > $FILE_LIST
 #     to make the folders
 #   then, build the command that moves files into appropriate 
 #     place in the structure - replacing the _ with /
-awk -F'/' 'NF!=2' $FILE_LIST \
+tail -n +2 $FILE_LIST \
+	| awk -F'/' 'NF!=2' \
 	| awk 'BEGIN{FS="_"} 
-	{printf "mv '\''./files/%s'\'' '\''./Clients/", $0}
-	{ for (i=2; i<=NF; i++) {
+	{printf "mv ./files/%s ./Clients/", $0}
+	{ for (i=2; i<=NF-1; i++) {
 		printf "%s/", $i}
 	}
-	{printf '\''\n"}' > $WORKING_FOLDER/movefiles.sh
+	{printf "%s\n",$NF}' > $WORKING_FOLDER/movefiles.sh
